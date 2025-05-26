@@ -2,7 +2,8 @@ import { Transform, TransformCallback, TransformOptions } from 'stream'
 
 export interface ByteLengthOptions extends TransformOptions {
   /** the number of bytes on each data event */
-  length: number
+  length: number,
+  requireExactChunk: boolean
 }
 
 /**
@@ -26,20 +27,23 @@ export class ByteLengthParser extends Transform {
     }
 
     this.length = options.length
+    this.requireExactChunk = options.requireExactChunk
     this.position = 0
     this.buffer = Buffer.alloc(this.length)
   }
 
   _transform(chunk: Buffer, _encoding: BufferEncoding, cb: TransformCallback) {
     let cursor = 0
-    while (cursor < chunk.length) {
-      this.buffer[this.position] = chunk[cursor]
-      cursor++
-      this.position++
-      if (this.position === this.length) {
-        this.push(this.buffer)
-        this.buffer = Buffer.alloc(this.length)
-        this.position = 0
+    if (!(this.requireExactChunk && chunk.length !== this.length)) {
+      while (cursor < chunk.length) {
+        this.buffer[this.position] = chunk[cursor]
+        cursor++
+        this.position++
+        if (this.position === this.length) {
+          this.push(this.buffer)
+          this.buffer = Buffer.alloc(this.length)
+          this.position = 0
+        }
       }
     }
     cb()
